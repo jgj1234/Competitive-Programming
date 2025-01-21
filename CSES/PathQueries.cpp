@@ -42,7 +42,7 @@ struct SegmentTree{
         }
         if (arrLeft > right || arrRight < left) return;
         if (arrLeft >= left && arrRight <= right){
-            lazy[node] = diff;
+            lazy[node] += diff;
             push(node, arrLeft, arrRight);
             return;
         }
@@ -76,7 +76,7 @@ void solve(int cas){
         g[b].emplace_back(a);
     }
     int tim = 0;
-    vector<int> start(n), end(n), id(n), answer(n);
+    vector<int> start(n), end(n), id(n);
     vector<ll> pref(n);
     auto dfs = [&] (auto&& self, int node, int parent, ll ps) -> void{
         ps += nums[node];
@@ -91,7 +91,11 @@ void solve(int cas){
         end[node] = tim;
     };
     dfs(dfs,0,0,0);
-    SegmentTree segTree(tim, pref);
+    vector<ll> real(n);
+    for (int i = 0; i < n; i++){
+        real[i] = pref[id[i]];
+    }
+    SegmentTree segTree(tim, real);
     while (q--){
         int t; cin>>t;
         if (t==1){
@@ -102,7 +106,7 @@ void solve(int cas){
         }
         else{
             int s; cin>>s; --s;
-            cout << segTree.query(0,0,n-1,s) << '\n';
+            cout << segTree.query(0,0,n-1,start[s]) << '\n';
         }
     }
 }
