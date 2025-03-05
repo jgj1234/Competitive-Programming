@@ -11,7 +11,7 @@ struct MergeVector{
     vector<T> vec;
     MergeVector(){}
     int sz(){return (int) vec.size();}
-    void add_front(int x){vec.emplace_back(x);}
+    void add_front(T x){vec.emplace_back(x);}
     T& operator [](const int& x) {return rbegin(vec)[x];}
 };
 vector<ll> g[200005];
