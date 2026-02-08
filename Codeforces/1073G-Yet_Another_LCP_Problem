@@ -1,0 +1,189 @@
+#include <bits/stdc++.h>
+#ifdef DEBUG
+    #include "debug.h"
+#else
+    #define debug(...)
+#endif
+#define ll long long
+#define MOD 1000000007
+#define all(x) x.begin(),x.end()
+#define MOD2 998244353
+using namespace std;
+struct SuffixArray{
+    int n;
+    string s;
+    vector<int> p, c, tp, tc, lcp, ct, where;
+    vector<vector<int>> rmq;
+    SuffixArray(string st){
+        s = st;
+        s += "$";
+        n = s.size();
+        p.resize(n);
+        c.resize(n);
+        tp.resize(n);
+        tc.resize(n);
+        where.resize(n);
+        ct.resize(max(512, n));
+        lcp.resize(n - 1);
+        build();
+        genLCP();
+        prec();
+    }
+    void prec(){
+        int lg = 32 - __builtin_clz(n);
+        rmq.resize(n - 1, vector<int> (lg));
+        for (int i = 0; i < n - 1; i++){
+            rmq[i][0] = lcp[i];
+        }
+        for (int j = 1; j < lg; j++){
+            for (int i = 0; i + (1 << j) - 1 < n - 1; i++){
+                rmq[i][j] = min(rmq[i][j - 1], rmq[i + (1 << (j - 1))][j - 1]);
+            }
+        }
+    }
+    int query(int l, int r){
+        /*l, r are positions of suffixes*/
+        r--;
+        assert(l <= r && l >= 0 && r <= n - 2);
+        int lg = 31 - __builtin_clz(r - l + 1);
+        return min(rmq[l][lg], rmq[r - (1 << lg) + 1][lg]);
+    }
+    void build(){
+        for (int i = 0; i < n; i++){
+            ct[s[i]]++;
+        }
+        for (int i = 1; i < ct.size(); i++) ct[i] += ct[i - 1];
+        for (int i = 0; i < n; i++){
+            p[--ct[s[i]]] = i;
+        }
+        int classes = 1;
+        c[p[0]] = 0;
+        for (int i = 1; i < n; i++){
+            if (s[p[i]] != s[p[i - 1]]){
+                classes++;
+            }
+            c[p[i]] = classes - 1;
+        }
+        for (int k = 1; k < n; k <<= 1){
+            for (int i = 0; i < n; i++){
+                tp[i] = p[i] - k;
+                if (tp[i] < 0) tp[i] += n;
+            }
+            fill(ct.begin(), ct.begin() + classes, 0);
+            for (int i = 0; i < n; i++) ct[c[i]]++;
+            for (int i = 1; i < classes; i++) ct[i] += ct[i - 1];
+            for (int i = n - 1; i >= 0; i--){
+                p[--ct[c[tp[i]]]] = tp[i];
+            }
+            tc = c;
+            classes = 1;
+            c[p[0]] = 0;
+            for (int i = 1; i < n; i++){
+                if ((tc[p[i]] != tc[p[i - 1]]) || (tc[(p[i] + k) % n] != tc[(p[i - 1] + k) % n])) classes++;
+                c[p[i]] = classes - 1;
+            }
+        }
+        for (int i = 0; i < n; i++) where[p[i]] =  i;
+    }
+    void genLCP(){
+        int pointer = 0;
+        for (int i = 0; i < n; i++){
+            if (where[i] == n - 1){
+                pointer = 0;
+                continue;
+            }
+            int nxt = p[where[i] + 1];
+            while (i + pointer < n && nxt + pointer < n && s[i + pointer] == s[nxt + pointer]) pointer++;
+            lcp[where[i]] = pointer;
+            pointer = max(pointer - 1, 0);
+        }
+    }
+};
+struct Stack{
+    ll area = 0;
+    vector<pair<ll,ll>> stk;
+    void add(ll mn, int index){
+        while (!stk.empty() && mn <= stk.back().first){
+            auto [mn1, idx] = stk.back(); stk.pop_back();
+            int aft = stk.back().second;
+            area -= mn1 * abs(aft - idx);
+        }
+        int aft = stk.back().second;
+        area += mn * abs(aft - index);
+        stk.emplace_back(make_pair(mn, index));
+    }
+    void clear(){
+        stk.clear();
+        area = 0;
+    }
+};
+void solve(int cas){ 
+    int n,q; cin>>n>>q;
+    string s; cin >> s;
+    SuffixArray sa(s);
+    while (q--){
+        int s1, s2; cin >> s1 >> s2;
+        vector<int> a(s1), b(s2);
+        for (int i = 0; i < s1; i++){
+            int x; cin >> x;
+            a[i] = sa.where[x - 1];
+        }
+        for (int i = 0; i < s2; i++){
+            int x; cin >> x;
+            b[i] = sa.where[x - 1];
+        }
+        sort(all(a)); sort(all(b));
+        int bp = s2 - 2, nxt = b.back();
+        ll res = 0;
+        Stack st;
+        st.stk.emplace_back(make_pair(-1, s2));
+        for (int i = s1 - 1; i >= 0; i--){
+            while (bp >= 0 && b[bp] >= a[i]){
+                ll mn = sa.query(b[bp], nxt);
+                st.add(mn, bp + 1);
+                nxt = b[bp];
+                --bp;
+            }
+            if (a[i] < nxt){
+                ll mn = sa.query(a[i], nxt);
+                st.add(mn, bp + 1);
+            }
+            res += st.area;
+        }
+        bp = 1;
+        st.clear();
+        st.stk.emplace_back(make_pair(-1, -1));
+        int bef = b[0];
+        for (int i = 0; i < s1; i++){
+            if (a[i] == b[0]){
+                res += n - sa.p[b[0]];
+            }
+            while (bp < s2 && b[bp] <= a[i]){
+                if (b[bp] == a[i]){
+                    res += n - sa.p[b[bp]];
+                }
+                ll mn = sa.query(bef, b[bp]);
+                st.add(mn, bp - 1);
+                bef = b[bp];
+                bp++;
+            }
+            if (a[i] > bef){
+                ll mn = sa.query(bef, a[i]);
+                st.add(mn, bp - 1);
+            }
+            res += st.area;
+        }
+        cout << res << '\n';
+    }
+}
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cout.tie(NULL);
+    int t = 1;
+    //cin>>t;
+    for (int i = 1; i <= t; i++){
+        solve(i);
+    }
+    return 0;
+}
